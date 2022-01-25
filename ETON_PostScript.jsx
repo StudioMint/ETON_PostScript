@@ -14,6 +14,7 @@ app.displayDialogs = DialogModes.NO;
 // VARIABLES
 
 var defineVariablesHere;
+var errorLog = [];
 
 try {
     init();
@@ -29,11 +30,14 @@ app.displayDialogs = startDisplayDialogs;
 function init() {
     
     // Preparation before running the main script
-    
-    if (activeDocument) {
-        activeDocument.suspendHistory("Name to be shown in history window", "main()");
-    } else {
-        main();
+    try {
+        activeDocument.activeLayer = activeDocument.layers.getByName("Group 1");
+    } catch(e) {
+        if (activeDocument) {
+            activeDocument.suspendHistory("Name to be shown in history window", "main()");
+        } else {
+            main();
+        }
     }
 
 }
@@ -46,15 +50,132 @@ function main() {
     moveAdjMask();
     createSolidColour();
     activeDocument.activeLayer.name = "Eton BG Colour #d6d0c6";
-    activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Adj").layerSets.getByName("Cloth").move(activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Adj"), ElementPlacement.PLACEBEFORE);
-    activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Cloth").name = "Garment";
-    activeDocument.activeLayer = activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Adj");
-    removeMask();
-    activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Adj").layerSets.getByName("Dodge and Burn").move(activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Adj"), ElementPlacement.PLACEAFTER);
+
+    // Move cloth
+    var variants_Cloth = ["Cloth", "cloth", "CLOTH", "clothe", "Clothe", "Cloths", "cloths", "clothes", "Clothes", "garment", "Garment", "garments", "Garments"];
+    var lyr_Cloth = findLayer(variants_Cloth,"LayerSet")
+    if (lyr_Cloth.length) {
+        for (i = 0; i < lyr_Cloth.length; i++) {
+            lyr_Cloth[i].move(activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Adj"), ElementPlacement.PLACEBEFORE);
+            lyr_Cloth[i].name = "Garment";
+        }
+    } else if (lyr_Cloth != null) {
+        lyr_Cloth.move(activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Adj"), ElementPlacement.PLACEBEFORE);
+        lyr_Cloth.name = "Garment";
+    } else {
+        errorLog.push(activeDocument.name + ": Failed to find and/or move the \"Cloth\" layer");
+    }
+
+    // Rename adj to group 1
+    var variants_Adj = ["Adj", "adj", "ADJ", "ADj", "adjustment", "adjustments", "Adjustment", "Adjustments", "ADJUSTMENT", "ADJUSTMENTS"];
+    var lyr_Adj = findLayer(variants_Adj,"LayerSet")
+    if (lyr_Adj.length) {
+        for (i = 0; i < lyr_Adj.length; i++) {
+            activeDocument.activeLayer = lyr_Adj[i];
+            functionLayerColour("None");
+            removeMask();
+        }
+    } else if (lyr_Adj != null) {
+        activeDocument.activeLayer = lyr_Adj;
+        functionLayerColour("None");
+        removeMask();
+    } else {
+        errorLog.push(activeDocument.name + ": Failed to find the \"Adj\" layer to remove mask");
+    }
+
+    // Move dodge and burn
+    var variants_DodgeAndBurn = ["Dodge and Burn", "Dodge And Burn", "Dodge and burn", "dodge and burn", "Dodge & Burn", "Dodge & burn", "Dodge Burn", "Dodge burn", "dodge burn"];
+    var lyr_DodgeAndBurn = findLayer(variants_DodgeAndBurn,"LayerSet")
+    if (lyr_DodgeAndBurn.length) {
+        for (i = 0; i < lyr_DodgeAndBurn.length; i++) lyr_DodgeAndBurn[i].move(activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Adj"), ElementPlacement.PLACEAFTER);
+    } else if (lyr_DodgeAndBurn != null) {
+        lyr_DodgeAndBurn.move(activeDocument.layerSets.getByName("Group 1").layerSets.getByName("Adj"), ElementPlacement.PLACEAFTER);
+    } else {
+        errorLog.push(activeDocument.name + ": Failed to find and/or move the \"Dodge and burn\" layer");
+    }
+
+    // Error log save
+    if (errorLog.length != 0) {
+        var d = new Date();
+        var date = d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + d.getMinutes();
+        saveTxt(date + "\n\n" + errorLog.join("\n---\n"), "errorlog", scriptFolder, ".txt");
+        alert(errorLog.length + " errors has been logged to a file in this location:\n" + decodeURI(scriptFolder));
+    }
 
 }
 
 // FUNCTIONS
+
+function findLayer(nameInput, type) {
+	
+	function diveDeeper(layerInput) {
+		
+        if (typeof nameInput == "string") {
+            if (type == "Any") {
+                if (layerInput.name == nameInput) results.push(layerInput);
+            }  else {
+                if (layerInput.name == nameInput && layerInput.typename == type) results.push(layerInput);
+            }
+        } else {
+            while (layerInput.name != nameInput[variantIndex]) {
+                variantIndex++;
+                if (variantIndex >= nameInput.length) break;
+            }
+
+            if (type == "Any") {
+                if (layerInput.name == nameInput[variantIndex]) results.push(layerInput);
+            }  else {
+                if (layerInput.name == nameInput[variantIndex] && layerInput.typename == type) results.push(layerInput);
+            }
+
+            variantIndex = 0;
+        }
+		
+		if (layerInput.typename === "LayerSet") {
+			if (layerInput.layers.length > 0) {
+				for (var indexDive = layerInput.layers.length - 1; indexDive > -1; indexDive--) diveDeeper(layerInput.layers[indexDive]);
+			}
+		}
+		
+	}
+	
+    var variantIndex = 0;
+	var results = [];
+
+    for (var indexAll = 0; indexAll < activeDocument.layers.length; indexAll++) diveDeeper(activeDocument.layers[indexAll]);
+	
+	if (!results.length) return null;
+	if (results.length == 1) return results[0];
+	if (results.length > 1) return results;
+	
+}
+
+function exploreLayer(layerInput) { // Input a layer object (ie. activeDocument.activeLayer) to explore.
+	
+	// If the layer input is a layer set, the script will iterate through the group starting from the bottom (for clipping mask reason)
+	// If the layer input is an art layer it will result in the last "else" only
+	
+	// "layerInput" is the current layer and "layerInput.parent" is the parent group 
+
+
+	
+	if (layerInput.typename === "LayerSet"){
+		if (layerInput.layers.length > 0){
+			for (var i = layerInput.layers.length-1; i > -1; i--) exploreLayer(layerInput.layers[i]);
+		} else {
+			// If a group is empty
+		}
+	} else if (layerInput.parent == activeDocument) {
+		
+		// If the input layer isn't in any group at all
+		
+	} else {
+		
+		// This is the only result, if the input layer is an art layer
+		
+	}
+	
+}
 
 function unlockBackground() {
     try {
@@ -238,4 +359,37 @@ function removeMask() {
             ref64.putEnumerated( idChnl, idChnl, idMsk );
         desc361.putReference( idnull, ref64 );
     executeAction( idDlt, desc361, DialogModes.NO );
+}
+
+function functionLayerColour(colour) {
+	switch (colour.toLocaleLowerCase()) {
+		case 'red': colour = 'Rd  '; break;
+		case 'orange' : colour = 'Orng'; break;
+		case 'yellow' : colour = 'Ylw '; break;
+		case 'green' : colour = 'Grn '; break;
+		case 'blue' : colour = 'Bl  '; break;
+		case 'violet' : colour = 'Vlt '; break;
+		case 'gray' : colour = 'Gry '; break;
+		case 'grey' : colour = 'Gry '; break;
+		case 'none' : colour = 'None'; break;
+		default : colour = 'None'; break;
+	}
+	var desc = new ActionDescriptor();
+		var ref = new ActionReference();
+		ref.putEnumerated( charIDToTypeID('Lyr '), charIDToTypeID('Ordn'), charIDToTypeID('Trgt') );
+	desc.putReference( charIDToTypeID('null'), ref );
+		var desc2 = new ActionDescriptor();
+		desc2.putEnumerated( charIDToTypeID('Clr '), charIDToTypeID('Clr '), charIDToTypeID(colour) );
+	desc.putObject( charIDToTypeID('T   '), charIDToTypeID('Lyr '), desc2 );
+	executeAction( charIDToTypeID('setd'), desc, DialogModes.NO );
+}
+
+function saveTxt(text, name, path, ext) {
+    if (!ext) ext = ".txt";
+    var saveFile = File(Folder(path) + "/" + name + ext);
+    if (saveFile.exists) saveFile.remove();
+    saveFile.encoding = "UTF8";
+    saveFile.open("e", "TEXT", "????");
+    saveFile.writeln(text);
+    saveFile.close();
 }
