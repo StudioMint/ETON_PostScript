@@ -46,10 +46,11 @@ function main() {
 
     unlockBackground();
     selectToAdj();
-    makeGroup();
+    makeGroup(); // Also rename to "group 1"
     moveAdjMask();
+    setFeather(activeDocument.layerSets.getByName("Group 1"), 1);
     createSolidColour();
-    activeDocument.activeLayer.name = "Eton BG Colour #d6d0c6";
+    activeDocument.activeLayer.name = "Eton BG Colour";
 
     // Move cloth
     var variants_Cloth = ["Cloth", "cloth", "CLOTH", "clothe", "Clothe", "Cloths", "cloths", "clothes", "Clothes", "garment", "Garment", "garments", "Garments"];
@@ -66,7 +67,7 @@ function main() {
         errorLog.push(activeDocument.name + ": Failed to find and/or move the \"Cloth\" layer");
     }
 
-    // Rename adj to group 1
+    // Remove mask from Adj
     var variants_Adj = ["Adj", "adj", "ADJ", "ADj", "adjustment", "adjustments", "Adjustment", "Adjustments", "ADJUSTMENT", "ADJUSTMENTS"];
     var lyr_Adj = findLayer(variants_Adj,"LayerSet")
     if (lyr_Adj.length) {
@@ -272,6 +273,31 @@ function makeGroup() {
     executeAction( idMk, desc286, DialogModes.NO );
 
 
+}
+
+function setFeather(lyr, amount) {
+    var currentLyr = activeDocument.activeLayer;
+    activeDocument.activeLayer = lyr;
+  
+    var idset = stringIDToTypeID( "set" );
+        var desc1032 = new ActionDescriptor();
+        var idnull = stringIDToTypeID( "null" );
+            var ref525 = new ActionReference();
+            var idlayer = stringIDToTypeID( "layer" );
+            var idordinal = stringIDToTypeID( "ordinal" );
+            var idtargetEnum = stringIDToTypeID( "targetEnum" );
+            ref525.putEnumerated( idlayer, idordinal, idtargetEnum );
+        desc1032.putReference( idnull, ref525 );
+        var idto = stringIDToTypeID( "to" );
+            var desc1033 = new ActionDescriptor();
+            var iduserMaskFeather = stringIDToTypeID( "userMaskFeather" );
+            var idpixelsUnit = stringIDToTypeID( "pixelsUnit" );
+            desc1033.putUnitDouble( iduserMaskFeather, idpixelsUnit, amount );
+        var idlayer = stringIDToTypeID( "layer" );
+        desc1032.putObject( idto, idlayer, desc1033 );
+    executeAction( idset, desc1032, DialogModes.NO );
+    
+    activeDocument.activeLayer = currentLyr;
 }
 
 function moveAdjMask() {
